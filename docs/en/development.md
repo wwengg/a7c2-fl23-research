@@ -7,7 +7,7 @@ One overview for maintainers and AI agents. Read [AGENTS.md](../../AGENTS.md) fi
 ## Scope
 
 - Camera: Sony ILCE-7CM2, firmware 2.01 only.
-- Product: the 3.0 desktop app (`desktop.py`), on Windows 10/11 x64 and macOS 14+ Apple Silicon. Windows and macOS share the GUI, planners, camera writes and recovery. Only USB drivers, privilege elevation and media handling differ per host.
+- Product: the 3.0 desktop app (`desktop.py`), on Windows 10/11 x64 and macOS 14+ (Apple Silicon and Intel). Windows and macOS share the GUI, planners, camera writes and recovery. Only USB drivers, privilege elevation and media handling differ per host.
 - Legacy command-line tools (`FL23.cmd`, `lut.py`, `recovery.py`, `shutter.py`, `vertical.py`, `a7look_*.py`, `raw_*.py`) remain for advanced use. Their backup-based workflows are separate from the desktop's backup-free direct operations.
 
 ## Repository map
@@ -116,7 +116,7 @@ The root `conftest.py` blocks physical USB enumeration in every test. Other suit
 
 Outputs:
 - **Windows:** `dist/A7C2Tools-Windows-x64.zip`. It contains `A7C2Tools.exe`, `_internal/`, `Profiles/` (paired library), both READMEs and `LICENSE`.
-- **macOS (Apple Silicon only):** `dist/A7C2Tools-macOS-arm64.dmg`. The paired library lives inside the app (`desktop-assets/profile-library-v1`).
+- **macOS (arm64 and x86_64):** `dist/A7C2Tools-macOS-<arch>.dmg`. The paired library lives inside the app (`desktop-assets/profile-library-v1`). On Intel the build restores the wheel's Zig binary after PyInstaller (an ad-hoc signature corrupts the x86_64 executable) and ships the bundle unsigned; deep `codesign --verify` is arm64-only.
 - `profilepack.py` refuses to package unless all 11 Fujifilm and 4 Ricoh color pairs are present. Monochrome pairs are allowed only if they meet the independent error limits (MAE ≤3/255, P95 ≤12/255).
 
 CI: `.github/workflows/desktop-preview.yml` builds on native Windows and `macos-15` runners and uploads artifacts without publishing a Release. Updating `dev/desktop/native-build-request.json` triggers an Apple Silicon build. Keystone/Unicorn build from source on ARM64 (Xcode CLT, CMake 3.31.6); Zig is 0.13.0.

@@ -7,7 +7,7 @@
 ## 范围
 
 - 相机：只支持 Sony ILCE-7CM2、固件 2.01。
-- 产品：3.0 桌面程序（`desktop.py`），支持 Windows 10／11 x64 和 macOS 14+ Apple Silicon。两个平台共用界面、规划、相机写入和恢复；只有 USB 驱动、提权和存储卷处理因系统而异。
+- 产品：3.0 桌面程序（`desktop.py`），支持 Windows 10／11 x64 和 macOS 14+（Apple Silicon 与 Intel）。两个平台共用界面、规划、相机写入和恢复；只有 USB 驱动、提权和存储卷处理因系统而异。
 - 旧版命令行工具（`FL23.cmd`、`lut.py`、`recovery.py`、`shutter.py`、`vertical.py`、`a7look_*.py`、`raw_*.py`）保留给高级用户。它们基于备份的流程，与桌面版不需要备份的直接操作相互独立。
 
 ## 目录
@@ -116,7 +116,7 @@ python desktop.py
 
 产物：
 - **Windows**：`dist/A7C2Tools-Windows-x64.zip`，包含 `A7C2Tools.exe`、`_internal/`、`Profiles/`（配对库）、两份 README 和 `LICENSE`。
-- **macOS（仅 Apple Silicon）**：`dist/A7C2Tools-macOS-arm64.dmg`，配对库在 APP 内部（`desktop-assets/profile-library-v1`）。
+- **macOS（arm64 与 x86_64）**：`dist/A7C2Tools-macOS-<arch>.dmg`，配对库在 APP 内部（`desktop-assets/profile-library-v1`）。Intel 构建会在 PyInstaller 之后还原 wheel 内的 Zig 二进制（ad-hoc 签名会损坏 x86_64 可执行文件），整体以未签名分发；`codesign --verify --deep` 仅在 arm64 上执行。
 - `profilepack.py` 要求富士 11 组、理光彩色 4 组配对全部齐全，否则拒绝打包。黑白配对只有满足独立误差标准（MAE ≤3/255、P95 ≤12/255）才能加入。
 
 CI：`.github/workflows/desktop-preview.yml` 在原生 Windows 和 `macos-15` runner 上构建并上传产物，不发布 Release。修改 `dev/desktop/native-build-request.json` 会触发 Apple Silicon 构建。ARM64 上 Keystone／Unicorn 从源码编译（需要 Xcode 命令行工具和 CMake 3.31.6）；Zig 版本为 0.13.0。

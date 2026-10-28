@@ -1,5 +1,6 @@
 """Build on the native host; Windows output paths remain unchanged."""
 import argparse
+import importlib.util
 import json
 from pathlib import Path
 import platform
@@ -23,11 +24,32 @@ def make_dmg(output):
         staging=Path(temporary)
         shutil.copytree(app,staging/app.name,symlinks=True)
         (staging/'Applications').symlink_to('/Applications',target_is_directory=True)
-        subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True)
+        # On Intel the restored Zig binary cannot be signed (see restore_zig),
+        # so the bundle is unsigned and deep verification cannot apply.
+        if platform.machine()!='x86_64':
+            subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True)
         subprocess.run(['hdiutil','create','-ov','-format','UDZO','-volname',
                         'A7C II Tools','-srcfolder',str(staging),str(target)],check=True)
     subprocess.run(['hdiutil','verify',str(target)],check=True)
     return target
+
+
+def restore_zig(app):
+    """Keep the x86_64 Zig executable working; it cannot survive signing.
+
+    PyInstaller ad-hoc signs every collected Mach-O binary. On x86_64 that
+    signature corrupts the ~180 MB ziglang executable: its clang frontend
+    segfaults on every `zig cc` cross compile (arm64 is unaffected). Restore
+    the untouched wheel binary verbatim and drop the now-invalid bundle
+    signature; Intel packages therefore ship unsigned, matching the arm64
+    packages which carry no Developer ID either."""
+    spec=importlib.util.find_spec('ziglang')
+    for folder in spec.submodule_search_locations or []:
+        source=Path(folder)/'zig'
+        if source.is_file():break
+    else:raise FileNotFoundError('ziglang executable not found in the build environment')
+    shutil.copy2(source,app/'Contents/Frameworks/ziglang/zig')
+    subprocess.run(['codesign','--remove-signature',str(app)],check=True)
 
 
 def make_windows_zip(output):
@@ -57,13 +79,14 @@ def main():
     parser.add_argument('--output',type=Path,default=ROOT/'dist')
     args=parser.parse_args()
     if sys.platform not in ('win32','darwin'):raise RuntimeError('Build on native Windows or macOS')
-    if sys.platform=='darwin' and platform.machine()!='arm64':
-        raise RuntimeError('macOS packaging supports Apple Silicon only; Intel builds are not provided')
+    if sys.platform=='darwin' and platform.machine() not in ('arm64','x86_64'):
+        raise RuntimeError('macOS packaging supports arm64 and x86_64 hosts only')
     output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
     profile_files()
     subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm',
                     '--distpath',str(output),'--workpath',str(ROOT/'build/desktop'),
                     str(ROOT/'dev/desktop/desktop.spec')],cwd=ROOT,check=True)
+    if sys.platform=='darwin' and platform.machine()=='x86_64':restore_zig(output/'A7C2Tools.app')
     target=make_dmg(output) if sys.platform=='darwin' else make_windows_zip(output)
     print(json.dumps(dict(artifact=str(target),bytes=target.stat().st_size,camera_io=False)))
 
